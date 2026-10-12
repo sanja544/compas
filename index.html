@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="uk">
 <head>
@@ -6,21 +5,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Компас населених пунктів</title>
 
-<link rel="stylesheet"
- href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <style>
 * { box-sizing: border-box; }
+
 body {
   margin: 0;
   font-family: Arial, sans-serif;
   background: #111827;
   color: white;
 }
+
 header { padding: 14px; }
 h2 { margin: 0 0 8px; font-size: 21px; }
-.status { color: #b8c5d8; font-size: 13px; margin: 8px 0; }
+
+.status {
+  color: #b8c5d8;
+  font-size: 13px;
+  margin: 8px 0;
+}
+
 .controls { padding: 0 12px 12px; }
+
 input, button {
   width: 100%;
   padding: 12px;
@@ -29,21 +36,34 @@ input, button {
   border: 1px solid #526078;
   font-size: 16px;
 }
-input { background: #fff; color: #111; }
+
+input { background: white; color: #111; }
+
 button {
   background: #2563eb;
   color: white;
   border: 0;
   font-weight: bold;
+  cursor: pointer;
 }
+
 button.secondary { background: #374151; }
+
 .info {
   padding: 10px 12px;
   font-size: 14px;
   line-height: 1.6;
 }
-#map { width: 100%; height: 49vh; min-height: 300px; }
+
+#map {
+  width: 100%;
+  height: 49vh;
+  min-height: 300px;
+  background: #dbeafe;
+}
+
 #places { padding: 0 12px 18px; }
+
 .place {
   background: #263244;
   padding: 10px;
@@ -51,7 +71,9 @@ button.secondary { background: #374151; }
   margin: 6px 0;
   font-size: 14px;
 }
+
 .place button { margin-top: 7px; }
+
 .arrow {
   color: #e11d48;
   font-size: 42px;
@@ -62,8 +84,15 @@ button.secondary { background: #374151; }
   text-align: center;
   line-height: 48px;
   transform-origin: center;
+  pointer-events: none;
 }
-.small { font-size: 12px; color: #bdc8d8; }
+
+.small {
+  font-size: 12px;
+  color: #bdc8d8;
+}
+
+.leaflet-control-attribution { font-size: 10px !important; }
 </style>
 </head>
 
@@ -77,12 +106,9 @@ button.secondary { background: #374151; }
 
 <div class="controls">
   <button id="gpsBtn">Увімкнути GPS</button>
-  <button id="compassBtn" class="secondary">
-    Увімкнути компас
-  </button>
+  <button id="compassBtn" class="secondary">Увімкнути компас</button>
 
-  <input id="search" type="search"
-    placeholder="Назва села або міста">
+  <input id="search" type="search" placeholder="Назва села або міста">
 
   <button id="searchBtn">Знайти населений пункт</button>
   <button id="clearBtn" class="secondary">
@@ -96,26 +122,34 @@ button.secondary { background: #374151; }
   <div>Ціль: <b id="target">Не вибрана</b></div>
   <div id="distance">Відстань: —</div>
   <div class="small">
-    Населені пункти: у секторі ±15° від стрілки, до 50 км.
-    Компас залежить від датчиків телефона.
+    Населені пункти в межах 3° від напрямку телефона, до 50 км.
+    Найближчі показуються першими. Для компаса потрібні датчики телефона.
   </div>
 </div>
 
 <div id="map"></div>
 
 <section id="places">
-  <h3>Населені пункти в напрямку стрілки</h3>
+  <h3>Населені пункти за напрямком</h3>
   <div id="list" class="status">
     Очікується визначення координат.
   </div>
 </section>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
 
 <script>
 const $ = id => document.getElementById(id);
 
-const map = L.map('map').setView([48.5, 31.2], 6);
+const R = 6371000;
+const MAX_DISTANCE = 50000;
+const SEARCH_ANGLE = 3;
+
+const map = L.map('map', {
+  rotate: true,
+  bearing: 0
+}).setView([48.5, 31.2], 6);
 
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
@@ -127,18 +161,18 @@ let heading = null;
 let target = null;
 let gpsWatch = null;
 let settlements = [];
+
 let placeLayer = L.layerGroup().addTo(map);
-let directionLine = null;
 let targetLine = null;
 let userMarker = null;
 let arrowMarker = null;
-let sectorLayer = null;
+
 let loadingPlaces = false;
 let lastPlacesQuery = 0;
-
-const R = 6371000;
-const MAX_DISTANCE = 50000;
-const HALF_ANGLE = 15;
+let lastQueryPosition = null;
+let compassEnabled = false;
+let lastGpsAccuracy = null;
+let orientationEventName = null;
 
 function setStatus(text) {
   $('status').textContent = text;
@@ -163,10 +197,9 @@ function distanceBetween(a, b) {
   const dl = radians(b.lng - a.lng);
 
   const h = Math.sin(dp / 2) ** 2 +
-    Math.cos(p1) * Math.cos(p2) *
-    Math.sin(dl / 2) ** 2;
+    Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
 
-  return 2 * R * Math.asin(Math.sqrt(h));
+  return 2 * R * Math.asin(Math.sqrt(Math.min(1, h)));
 }
 
 function bearingBetween(a, b) {
@@ -197,10 +230,7 @@ function destinationPoint(start, bearing, distance) {
     Math.cos(d) - Math.sin(p1) * Math.sin(p2)
   );
 
-  return {
-    lat: degrees(p2),
-    lng: degrees(l2)
-  };
+  return { lat: degrees(p2), lng: degrees(l2) };
 }
 
 function formatDistance(m) {
@@ -210,16 +240,49 @@ function formatDistance(m) {
 }
 
 function formatBearing(b) {
-  const names = [
-    'Пн', 'ПнСх', 'Сх', 'ПдСх',
-    'Пд', 'ПдЗх', 'Зх', 'ПнЗх'
-  ];
-  return Math.round(b) + '° (' +
-    names[Math.round(b / 45) % 8] + ')';
+  const names = ['Пн', 'ПнСх', 'Сх', 'ПдСх',
+                 'Пд', 'ПдЗх', 'Зх', 'ПнЗх'];
+
+  return Math.round(b) + '° (' + names[Math.round(b / 45) % 8] + ')';
 }
 
 function angularDifference(a, b) {
   return Math.abs(((a - b + 540) % 360) - 180);
+}
+
+function rotateMap() {
+  if (heading === null) return;
+
+  // Повертаємо карту, щоб напрямок телефона був угорі екрана.
+  if (typeof map.setBearing === 'function') {
+    map.setBearing(normalize(360 - heading));
+  } else {
+    setStatus(
+      'Плагін обертання карти не завантажився. ' +
+      'Перевір підключення до інтернету та перезавантаж сторінку.'
+    );
+  }
+}
+
+function updateArrow() {
+  if (!position || heading === null) return;
+
+  const color = target ? '#16a34a' : '#e11d48';
+
+  if (arrowMarker) map.removeLayer(arrowMarker);
+
+  arrowMarker = L.marker(position, {
+    icon: L.divIcon({
+      className: '',
+      html:
+        '<div class="arrow" style="color:' + color +
+        ';transform:rotate(' + heading + 'deg)">↑</div>',
+      iconSize: [48, 48],
+      iconAnchor: [24, 24]
+    }),
+    interactive: false,
+    keyboard: false
+  }).addTo(map);
 }
 
 function updateMap() {
@@ -227,7 +290,7 @@ function updateMap() {
 
   if (!userMarker) {
     userMarker = L.circleMarker(position, {
-      radius: 8,
+      radius: 7,
       color: '#fff',
       weight: 3,
       fillColor: '#2563eb',
@@ -238,64 +301,16 @@ function updateMap() {
   }
 
   $('coords').textContent =
-    position.lat.toFixed(5) + ', ' +
-    position.lng.toFixed(5);
+    position.lat.toFixed(5) + ', ' + position.lng.toFixed(5);
 
-  if (heading !== null && !target) {
-    const end = destinationPoint(position, heading, MAX_DISTANCE);
-
-    if (directionLine) map.removeLayer(directionLine);
-    directionLine = L.polyline([position, end], {
-      color: '#e11d48',
-      weight: 4,
-      opacity: 0.8
-    }).addTo(map);
-
-    if (arrowMarker) map.removeLayer(arrowMarker);
-
-    arrowMarker = L.marker(position, {
-      icon: L.divIcon({
-        className: '',
-        html: '<div class="arrow" style="transform:rotate(' +
-          heading + 'deg)">↑</div>',
-        iconSize: [48, 48],
-        iconAnchor: [24, 24]
-      }),
-      interactive: false
-    }).addTo(map);
-
+  if (heading !== null) {
     $('heading').textContent = formatBearing(heading);
-    $('distance').textContent =
-      'Лінія показує напрямок до 50 км, а не місце вибуху.';
-
-    drawSector();
+    rotateMap();
+    updateArrow();
     renderSettlements();
   }
 
   if (target) updateTargetLine();
-}
-
-function drawSector() {
-  if (!position || heading === null || target) return;
-
-  if (sectorLayer) map.removeLayer(sectorLayer);
-
-  const points = [position];
-
-  for (let a = -HALF_ANGLE; a <= HALF_ANGLE; a += 3) {
-    points.push(destinationPoint(
-      position, normalize(heading + a), MAX_DISTANCE
-    ));
-  }
-
-  points.push(position);
-
-  sectorLayer = L.polygon(points, {
-    color: '#f59e0b',
-    weight: 1,
-    fillColor: '#f59e0b',
-    fillOpacity: 0.10
-  }).addTo(map);
 }
 
 function renderSettlements() {
@@ -306,25 +321,32 @@ function renderSettlements() {
   const found = settlements.map(s => {
     const d = distanceBetween(position, s);
     const b = bearingBetween(position, s);
-    return { ...s, d, b, diff: angularDifference(b, heading) };
-  }).filter(s =>
-    s.d <= MAX_DISTANCE && s.diff <= HALF_ANGLE
-  ).sort((a, b) => a.d - b.d);
+
+    return {
+      ...s,
+      d,
+      b,
+      diff: angularDifference(b, heading)
+    };
+  })
+  .filter(s => s.d <= MAX_DISTANCE && s.diff <= SEARCH_ANGLE)
+  .sort((a, b) => a.d - b.d);
 
   const list = $('list');
-  list.innerHTML = '';
+  list.replaceChildren();
 
   if (!found.length) {
     list.textContent =
-      'У цьому секторі населених пунктів не знайдено. ' +
-      'Дані карти можуть бути неповними.';
+      'У напрямку стрілки населених пунктів не знайдено. ' +
+      'Спробуй повернути телефон або перевір інтернет.';
     return;
   }
 
-  found.slice(0, 100).forEach(s => {
+  found.slice(0, 100).forEach((s, index) => {
     const marker = L.circleMarker([s.lat, s.lng], {
       radius: 5,
       color: '#111827',
+      weight: 1,
       fillColor: '#f59e0b',
       fillOpacity: 1
     }).addTo(placeLayer);
@@ -338,14 +360,15 @@ function renderSettlements() {
     div.className = 'place';
 
     const title = document.createElement('b');
-    title.textContent = s.name;
+    title.textContent = (index + 1) + '. ' + s.name;
 
     const detail = document.createElement('div');
-    detail.textContent = formatDistance(s.d) +
-      ' · ' + formatBearing(s.b);
+    detail.textContent =
+      formatDistance(s.d) + ' · ' + formatBearing(s.b);
 
     const btn = document.createElement('button');
     btn.textContent = 'Показати на карті';
+
     btn.onclick = () => {
       map.setView([s.lat, s.lng], 11);
       marker.openPopup();
@@ -358,20 +381,31 @@ function renderSettlements() {
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;',
-    '"': '&quot;', "'": '&#39;'
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
   })[c]);
 }
 
-async function loadSettlements() {
+async function loadSettlements(force = false) {
   if (!position || loadingPlaces) return;
 
-  // Не повторювати запит надто часто.
-  if (Date.now() - lastPlacesQuery < 60000) return;
+  const now = Date.now();
+
+  if (!force && now - lastPlacesQuery < 60000) return;
+
+  if (!force && lastQueryPosition &&
+      distanceBetween(position, lastQueryPosition) < 3000) {
+    return;
+  }
 
   loadingPlaces = true;
-  lastPlacesQuery = Date.now();
-  $('list').textContent = 'Завантаження даних OpenStreetMap…';
+  lastPlacesQuery = now;
+  lastQueryPosition = { ...position };
+
+  $('list').textContent = 'Завантаження населених пунктів…';
 
   const query = `
     [out:json][timeout:35];
@@ -398,7 +432,7 @@ async function loadSettlements() {
       }
     );
 
-    if (!response.ok) throw new Error('Помилка Overpass API');
+    if (!response.ok) throw new Error('Помилка сервера OpenStreetMap');
 
     const data = await response.json();
     const unique = new Map();
@@ -411,17 +445,22 @@ async function loadSettlements() {
 
       if (lat == null || lng == null || !name) continue;
 
-      const key = name + ':' + lat.toFixed(4) + ':' + lng.toFixed(4);
+      const key = e.type + ':' + e.id;
 
-      unique.set(key, { name, lat, lng });
+      unique.set(key, {
+        name,
+        lat: Number(lat),
+        lng: Number(lng)
+      });
     }
 
     settlements = [...unique.values()];
-    renderSettlements();
 
-    if (target) {
+    if (heading !== null && !target) {
+      renderSettlements();
+    } else {
       $('list').textContent =
-        'Пошук напрямку до вибраного населеного пункту активний.';
+        'Дані завантажено. Увімкни компас, щоб побачити напрямок.';
     }
   } catch (err) {
     $('list').textContent =
@@ -435,7 +474,7 @@ async function loadSettlements() {
 
 $('gpsBtn').addEventListener('click', () => {
   if (!navigator.geolocation) {
-    setStatus('Цей браузер не підтримує GPS.');
+    setStatus('Цей браузер не підтримує геолокацію.');
     return;
   }
 
@@ -447,27 +486,38 @@ $('gpsBtn').addEventListener('click', () => {
 
   gpsWatch = navigator.geolocation.watchPosition(
     async p => {
-      position = {
+      const next = {
         lat: p.coords.latitude,
         lng: p.coords.longitude
       };
 
+      lastGpsAccuracy = p.coords.accuracy;
+      const moved = !position ||
+        distanceBetween(position, next) >= 3000;
+
+      position = next;
+
       updateMap();
 
-      if (!target) {
+      if (!target && moved) {
         map.setView(position, 10);
       }
 
       setStatus(
         'GPS працює. Точність: приблизно ' +
-        Math.round(p.coords.accuracy) + ' м.'
+        Math.round(lastGpsAccuracy) + ' м.'
       );
 
-      if (lastPlacesQuery === 0) await loadSettlements();
+      if (!settlements.length ||
+          (moved && Date.now() - lastPlacesQuery >= 60000)) {
+        await loadSettlements();
+      }
     },
     err => {
-      setStatus('GPS недоступний: ' + err.message +
-        '. Перевір дозвіл на місцезнаходження.');
+      setStatus(
+        'GPS недоступний: ' + err.message +
+        '. Дозволь доступ до місцезнаходження.'
+      );
     },
     {
       enableHighAccuracy: true,
@@ -485,8 +535,8 @@ $('compassBtn').addEventListener('click', async () => {
     }
 
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      const permission =
-        await DeviceOrientationEvent.requestPermission(true);
+      // В iOS метод викликається без аргументів.
+      const permission = await DeviceOrientationEvent.requestPermission();
 
       if (permission !== 'granted') {
         setStatus('Доступ до компаса не надано.');
@@ -494,39 +544,59 @@ $('compassBtn').addEventListener('click', async () => {
       }
     }
 
+    if (compassEnabled) return;
+
+    compassEnabled = true;
+
     window.addEventListener('deviceorientation', handleOrientation, true);
     window.addEventListener(
-      'deviceorientationabsolute', handleOrientation, true
+      'deviceorientationabsolute',
+      handleOrientation,
+      true
     );
 
-    setStatus('Датчики компаса увімкнено. Поверни телефон.');
+    setStatus('Компас увімкнено. Поверни телефон.');
   } catch (err) {
-    setStatus('Не вдалося ввімкнути компас: ' + err.message);
+    setStatus(
+      'Не вдалося ввімкнути компас. Відкрий сторінку через HTTPS ' +
+      'і перевір дозволи датчиків.'
+    );
+    console.error(err);
   }
 });
 
-let lastHeading = null;
-
 function handleOrientation(e) {
-  // iPhone Safari має спеціальну властивість компаса.
-  if (typeof e.webkitCompassHeading === 'number') {
-    heading = normalize(e.webkitCompassHeading);
-  } else if (e.absolute && typeof e.alpha === 'number') {
-    // Для багатьох Android-пристроїв це приблизний напрямок.
-    // У деяких моделях потрібне інше калібрування.
-    heading = normalize(360 - e.alpha);
-  } else {
-    if (lastHeading === null && typeof e.alpha === 'number') {
-      lastHeading = e.alpha;
-    }
+  let newHeading = null;
 
+  // iPhone Safari.
+  if (typeof e.webkitCompassHeading === 'number') {
+    newHeading = normalize(e.webkitCompassHeading);
+  } else if (e.absolute === true && typeof e.alpha === 'number') {
+    newHeading = normalize(360 - e.alpha);
+  } else if (typeof e.alpha === 'number' &&
+             e.absolute !== false &&
+             e.type === 'deviceorientationabsolute') {
+    newHeading = normalize(360 - e.alpha);
+  }
+
+  if (newHeading === null) {
     $('heading').textContent =
-      'Немає абсолютного компаса — перевір підтримку телефона';
+      'Немає абсолютного компаса';
     return;
   }
 
-  lastHeading = heading;
-  updateMap();
+  // Згладжуємо дрібні коливання показників.
+  if (heading !== null) {
+    const delta = ((newHeading - heading + 540) % 360) - 180;
+    if (Math.abs(delta) < 1.2) return;
+    heading = normalize(heading + delta * 0.35);
+  } else {
+    heading = newHeading;
+  }
+
+  rotateMap();
+  updateArrow();
+  renderSettlements();
 }
 
 $('searchBtn').addEventListener('click', searchPlace);
@@ -554,6 +624,7 @@ async function searchPlace() {
     url.searchParams.set('countrycodes', 'ua');
 
     const response = await fetch(url);
+
     if (!response.ok) throw new Error('Помилка пошуку');
 
     const results = await response.json();
@@ -564,16 +635,25 @@ async function searchPlace() {
       return;
     }
 
-    const choices = results.map((r, i) =>
-      `${i + 1}. ${r.display_name}`
-    ).join('\n');
+    let choice = 0;
 
-    const choice = results.length === 1
-      ? 0
-      : Number(prompt('Вибери результат:\n' + choices)) - 1;
+    if (results.length > 1) {
+      const choices = results.map((r, i) =>
+        `${i + 1}. ${r.display_name}`
+      ).join('\n');
 
-    if (!Number.isInteger(choice) ||
-        choice < 0 || choice >= results.length) return;
+      const answer = prompt('Вибери результат:\n' + choices);
+
+      if (answer === null) return;
+
+      choice = Number(answer) - 1;
+
+      if (!Number.isInteger(choice) ||
+          choice < 0 || choice >= results.length) {
+        setStatus('Неправильний номер результату.');
+        return;
+      }
+    }
 
     const r = results[choice];
 
@@ -584,14 +664,22 @@ async function searchPlace() {
     };
 
     $('target').textContent = target.name;
+
     updateTargetLine();
 
-    map.fitBounds([
-      position || target,
-      target
-    ], { padding: [30, 30] });
+    const bounds = L.latLngBounds(
+      position ? [position, target] : [target]
+    );
+
+    map.fitBounds(bounds, { padding: [30, 30], maxZoom: 12 });
+
+    // Після зміни масштабу повертаємо карту за компасом.
+    rotateMap();
+    updateArrow();
 
     setStatus('Напрямок до вибраного населеного пункту показано.');
+    $('list').textContent =
+      'Активний пошук вибраного населеного пункту.';
   } catch (err) {
     setStatus('Помилка пошуку. Перевір інтернет і повтори спробу.');
     console.error(err);
@@ -614,19 +702,6 @@ function updateTargetLine() {
   $('distance').textContent =
     'До цілі: ' + formatDistance(d) +
     ' · напрямок ' + formatBearing(b);
-
-  if (arrowMarker) map.removeLayer(arrowMarker);
-
-  arrowMarker = L.marker(position, {
-    icon: L.divIcon({
-      className: '',
-      html: '<div class="arrow" style="color:#16a34a;transform:rotate(' +
-        b + 'deg)">↑</div>',
-      iconSize: [48, 48],
-      iconAnchor: [24, 24]
-    }),
-    interactive: false
-  }).addTo(map);
 }
 
 $('clearBtn').addEventListener('click', () => {
@@ -635,16 +710,20 @@ $('clearBtn').addEventListener('click', () => {
   if (targetLine) map.removeLayer(targetLine);
   targetLine = null;
 
-  if (sectorLayer) map.removeLayer(sectorLayer);
-  sectorLayer = null;
-
   $('target').textContent = 'Не вибрана';
+  $('distance').textContent = 'Відстань: —';
 
   if (position) {
-    updateMap();
     map.setView(position, 10);
+    rotateMap();
+    updateMap();
     renderSettlements();
   }
+});
+
+// Завантажуємо дані, якщо GPS уже отримано, а список ще порожній.
+map.whenReady(() => {
+  if (position && !settlements.length) loadSettlements();
 });
 </script>
 </body>

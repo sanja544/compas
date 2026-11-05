@@ -1,676 +1,669 @@
+
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Компас населених пунктів</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<style>
-* { box-sizing: border-box; }
-html, body {
-  margin: 0; width: 100%; height: 100%; 
-  overflow: hidden; font-family: Arial, sans-serif;
-}
-#app {
-  display: flex; flex-direction: column;
-  height: 100vh; height: 100dvh;
-}
-#top {
-  padding: 9px 12px; background: #fff;
-  box-shadow: 0 2px 7px #0002; z-index: 1000;
-  flex-shrink: 0;
-}
-#title { font-size: 18px; font-weight: 700; margin-bottom: 5px; }
-#status { font-size: 12px; line-height: 1.4; color: #333; overflow-wrap: anywhere; }
-.controls { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 8px; }
-button {
-  border: 0; border-radius: 7px; padding: 9px 11px;
-  background: #1769d2; color: white; font-size: 13px; font-weight: 600;
-}
-button:disabled { opacity: .5; }
-.sliderRow {
-  display: grid; grid-template-columns: 125px 1fr 54px;
-  gap: 7px; align-items: center; margin-top: 9px; font-size: 12px;
-}
-.sliderRow input { width: 100%; min-width: 0; accent-color: #1769d2; }
-.sliderValue { text-align: right; font-weight: 700; white-space: nowrap; }
-#mapWrap { position: relative; flex: 1 1 auto; min-height: 100px; overflow: hidden; }
-#map { position: absolute; inset: 0; width: 100%; height: 100%; }
-#directionOverlay { position: absolute; inset: 0; z-index: 700; pointer-events: none; }
-#directionLine {
-  position: absolute; left: 50%; top: 0;
-  width: 1px; height: calc(50% - 17px);
-  background: rgba(220,25,25,.85); transform: translateX(-50%);
-}
-#directionTip {
-  position: absolute; left: 50%; top: calc(50% - 17px);
-  width: 0; height: 0; transform: translateX(-50%);
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-bottom: 9px solid rgba(220,25,25,.9);
-}
-.leaflet-marker-pane { z-index: 750 !important; }
-.my-location {
-  width: 16px; height: 16px; border: 3px solid white;
-  border-radius: 50%; background: #1677ff;
-  box-shadow: 0 0 0 2px #1677ff, 0 1px 6px #0007;
-}
-#bottom {
-  flex: 0 0 31%; min-height: 110px; max-height: 42%;
-  display: flex; flex-direction: column;
-  background: #fff; border-top: 1px solid #ddd;
-}
-#listHeader {
-  padding: 8px 12px; border-bottom: 1px solid #eee;
-  font-size: 13px; font-weight: 700; flex-shrink: 0;
-}
-#settlementList { overflow-y: auto; overscroll-behavior: contain; padding: 0 12px 6px; }
-.item {
-  display: flex; justify-content: space-between; align-items: center;
-  gap: 10px; padding: 9px 0; border-bottom: 1px solid #eee; font-size: 14px;
-}
-.itemName { overflow-wrap: anywhere; }
-.distance { white-space: nowrap; font-size: 13px; color: #444; }
-#empty { padding: 12px 0; font-size: 13px; line-height: 1.45; color: #555; }
-.leaflet-control-attribution { font-size: 9px !important; }
-@media (max-height: 650px) {
-  #top { padding: 6px 9px; }
-  #title { font-size: 16px; }
-  .sliderRow { margin-top: 5px; }
-  .controls { margin-top: 5px; }
-  #bottom { flex-basis: 28%; }
-}
-</style>
+    <title>Neon Калькулятор робочих днів</title>
+
+    <style>
+        :root {
+            --bg: #050014;
+            --card: #10002b;
+            --text: #ffffff;
+            --secondary: #bda9ff;
+            --accent: #00f7ff;
+            --input: #1b0640;
+            --border: #7d2cff;
+            --error: #ff4d6d;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            font-family: Arial, sans-serif;
+            color: var(--text);
+
+            background:
+                radial-gradient(circle at top left, #24005c, transparent 35%),
+                radial-gradient(circle at bottom right, #001f3f, transparent 35%),
+                var(--bg);
+
+            transition: 0.4s ease;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 520px;
+            padding: 35px;
+            background: var(--card);
+            border: 1px solid var(--accent);
+            border-radius: 24px;
+
+            box-shadow:
+                0 0 20px rgba(0, 247, 255, 0.3),
+                0 0 60px rgba(125, 44, 255, 0.25);
+
+            animation: appear 0.7s ease;
+        }
+
+        @keyframes appear {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            margin-top: 0;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 30px;
+            text-shadow:
+                0 0 10px var(--accent),
+                0 0 25px var(--accent);
+        }
+
+        .mode {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .mode button {
+            flex: 1;
+            padding: 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 15px;
+            background: var(--input);
+            color: var(--text);
+            transition: 0.3s ease;
+        }
+
+        .mode button:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 12px var(--accent);
+        }
+
+        .mode button.active {
+            background: var(--accent);
+            color: #000000;
+            box-shadow: 0 0 15px var(--accent);
+        }
+
+        select,
+        input[type="date"],
+        input[type="number"] {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            outline: none;
+            background: var(--input);
+            color: var(--text);
+            font-size: 16px;
+            transition: 0.3s ease;
+        }
+
+        select:focus,
+        input[type="date"]:focus,
+        input[type="number"]:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 12px var(--accent);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--secondary);
+            font-size: 14px;
+        }
+
+        .period {
+            display: none;
+        }
+
+        .period.active {
+            display: block;
+        }
+
+        /* НОВІ НАЛАШТУВАННЯ ЗАРПЛАТИ */
+
+        .settings {
+            margin-top: 10px;
+            padding: 18px;
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            background: var(--input);
+        }
+
+        .settings-title {
+            margin-top: 0;
+            margin-bottom: 18px;
+            color: var(--accent);
+            font-size: 18px;
+        }
+
+        .advance-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 5px 0 15px;
+            color: var(--secondary);
+            cursor: pointer;
+        }
+
+        .advance-toggle input {
+            width: 18px;
+            height: 18px;
+            margin: 0;
+            accent-color: var(--accent);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .result {
+            margin-top: 25px;
+            padding: 22px;
+            border-radius: 15px;
+            background: var(--input);
+
+            box-shadow:
+                inset 0 0 15px rgba(125, 44, 255, 0.2);
+
+            line-height: 2;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            color: var(--secondary);
+        }
+
+        .result-row strong {
+            color: var(--text);
+            text-align: right;
+        }
+
+        .work-days {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+            font-size: 25px;
+            font-weight: bold;
+            color: var(--text);
+        }
+
+        .work-days span {
+            color: var(--accent);
+            text-shadow: 0 0 10px var(--accent);
+        }
+
+        .salary {
+            margin-top: 18px;
+            padding-top: 18px;
+            border-top: 1px solid var(--border);
+            font-size: 27px;
+            font-weight: bold;
+            color: var(--accent);
+
+            text-shadow:
+                0 0 10px var(--accent),
+                0 0 25px var(--accent);
+        }
+
+        .error {
+            margin-top: 10px;
+            color: var(--error);
+            text-align: center;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 15px;
+            }
+
+            .container {
+                padding: 25px 20px;
+            }
+
+            h1 {
+                font-size: 25px;
+            }
+
+            .work-days {
+                font-size: 22px;
+            }
+
+            .salary {
+                font-size: 24px;
+            }
+        }
+    </style>
 </head>
 
 <body>
-<div id="app">
-  <div id="top">
-    <div id="title">Компас населених пунктів</div>
-    <div id="status">Увімкніть GPS і компас.</div>
-    <div class="controls">
-      <button id="startBtn">Увімкнути GPS</button>
-      <button id="compassBtn">Увімкнути компас</button>
-      <button id="refreshBtn">Оновити дані</button>
+
+    <div class="container">
+
+        <h1>Калькулятор робочих днів</h1>
+
+        <!-- ВИБІР РЕЖИМУ -->
+
+        <div class="mode">
+            <button id="monthModeBtn" class="active">
+                Один місяць
+            </button>
+
+            <button id="periodModeBtn">
+                Свій період
+            </button>
+        </div>
+
+        <!-- РЕЖИМ ОДНОГО МІСЯЦЯ -->
+
+        <div id="monthMode" class="period active">
+
+            <select id="month">
+                <option value="0">Січень</option>
+                <option value="1">Лютий</option>
+                <option value="2">Березень</option>
+                <option value="3">Квітень</option>
+                <option value="4">Травень</option>
+                <option value="5">Червень</option>
+                <option value="6">Липень</option>
+                <option value="7">Серпень</option>
+                <option value="8">Вересень</option>
+                <option value="9">Жовтень</option>
+                <option value="10">Листопад</option>
+                <option value="11">Грудень</option>
+            </select>
+
+            <select id="year"></select>
+
+        </div>
+
+        <!-- РЕЖИМ ВЛАСНОГО ПЕРІОДУ -->
+
+        <div id="customMode" class="period">
+
+            <label for="startDate">Дата початку</label>
+            <input type="date" id="startDate">
+
+            <label for="endDate">Дата завершення</label>
+            <input type="date" id="endDate">
+
+        </div>
+
+        <!-- НАЛАШТУВАННЯ ЗАРПЛАТИ -->
+
+        <div class="settings">
+
+            <h2 class="settings-title">Налаштування зарплати</h2>
+
+            <label for="salaryPerDay">
+                Зарплата за один робочий день (грн)
+            </label>
+
+            <input
+                type="number"
+                id="salaryPerDay"
+                min="0"
+                step="1"
+                value="950"
+            >
+
+            <label for="missedDays">
+                Кількість пропущених днів
+            </label>
+
+            <select id="missedDays">
+                <option value="0" selected>0 днів</option>
+                <option value="1">1 день</option>
+                <option value="2">2 дні</option>
+                <option value="3">3 дні</option>
+                <option value="4">4 дні</option>
+                <option value="5">5 днів</option>
+            </select>
+
+            <label class="advance-toggle" for="advanceEnabled">
+                <input type="checkbox" id="advanceEnabled">
+                <span>Аванс (відняти від зарплати)</span>
+            </label>
+
+            <div id="advanceSettings" style="display: none;">
+
+                <label for="advanceAmount">
+                    Сума авансу (грн)
+                </label>
+
+                <input
+                    type="number"
+                    id="advanceAmount"
+                    min="0"
+                    step="1"
+                    value="3000"
+                >
+
+            </div>
+
+        </div>
+
+        <!-- РЕЗУЛЬТАТ -->
+
+        <div class="result">
+
+            <div class="result-row">
+                <span>Всього днів:</span>
+                <strong id="totalDays">0</strong>
+            </div>
+
+            <div class="result-row">
+                <span>Неділь:</span>
+                <strong id="sundays">0</strong>
+            </div>
+
+            <div class="work-days">
+                Робочих днів:
+                <span id="workDays">0</span>
+            </div>
+
+            <div class="salary">
+                Зарплата:
+                <span id="salary">0</span>
+                грн
+            </div>
+
+            <div id="error" class="error"></div>
+
+        </div>
+
     </div>
-    <div class="sliderRow">
-      <label for="angleSlider">Кут сектору</label>
-      <input id="angleSlider" type="range" min="0" max="15" step="1" value="1">
-      <span id="angleValue" class="sliderValue">±1°</span>
-    </div>
-    <div class="sliderRow">
-      <label for="distanceSlider">Відстань пошуку</label>
-      <input id="distanceSlider" type="range" min="1" max="50" step="1" value="50">
-      <span id="distanceValue" class="sliderValue">50 км</span>
-    </div>
-  </div>
 
-  <div id="mapWrap">
-    <div id="map"></div>
-    <div id="directionOverlay" aria-hidden="true">
-      <div id="directionLine"></div>
-      <div id="directionTip"></div>
-    </div>
-  </div>
+    <script>
 
-  <div id="bottom">
-    <div id="listHeader">Населені пункти попереду</div>
-    <div id="settlementList">
-      <div id="empty">Очікування GPS і компаса…</div>
-    </div>
-  </div>
-</div>
+        /* НАЛАШТУВАННЯ */
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/@tomickigrzegorz/leaflet-rotate/dist/leaflet-rotate.umd.min.js"></script>
+        const defaultSalaryPerDay = 950;
+        const defaultAdvance = 3000;
 
-<script>
-(() => {
-  "use strict";
+        /* ОТРИМАННЯ ЕЛЕМЕНТІВ */
 
-  const MAX_RADIUS_METERS = 50000;
-  const LIST_UPDATE_INTERVAL = 2000;
-  const DATA_REFRESH_INTERVAL = 180000;
-  const MIN_MOVE_TO_REFRESH = 3000;
-  const DUPLICATE_DISTANCE_METERS = 600;
+        const monthModeBtn = document.getElementById("monthModeBtn");
+        const periodModeBtn = document.getElementById("periodModeBtn");
 
-  const statusEl = document.getElementById("status");
-  const listEl = document.getElementById("settlementList");
-  const listHeader = document.getElementById("listHeader");
-  const startBtn = document.getElementById("startBtn");
-  const compassBtn = document.getElementById("compassBtn");
-  const refreshBtn = document.getElementById("refreshBtn");
-  const angleSlider = document.getElementById("angleSlider");
-  const angleValue = document.getElementById("angleValue");
-  const distanceSlider = document.getElementById("distanceSlider");
-  const distanceValue = document.getElementById("distanceValue");
+        const monthMode = document.getElementById("monthMode");
+        const customMode = document.getElementById("customMode");
 
-  let position = null;
-  let heading = null;
-  let gpsWatchId = null;
-  let compassStarted = false;
-  let settlements = [];
-  let lastFetchTime = 0;
-  let lastFetchPosition = null;
-  let fetchInProgress = false;
-  let fetchAgain = false;
-  let lastListRender = 0;
-  let renderTimer = null;
-  let activeController = null;
+        const monthSelect = document.getElementById("month");
+        const yearSelect = document.getElementById("year");
 
-  const map = L.map("map", {
-    rotate: true,
-    touchRotate: false,
-    shiftKeyRotate: false,
-    dragRotate: false
-  }).setView([49, 31], 6);
+        const startDateInput = document.getElementById("startDate");
+        const endDateInput = document.getElementById("endDate");
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors"
-  }).addTo(map);
+        const salaryPerDayInput = document.getElementById("salaryPerDay");
+        const missedDaysSelect = document.getElementById("missedDays");
 
-  const myIcon = L.divIcon({
-    className: "",
-    html: '<div class="my-location"></div>',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8]
-  });
+        const advanceEnabled = document.getElementById("advanceEnabled");
+        const advanceAmountInput = document.getElementById("advanceAmount");
+        const advanceSettings = document.getElementById("advanceSettings");
 
-  let myMarker = null;
+        const totalDaysElement = document.getElementById("totalDays");
+        const sundaysElement = document.getElementById("sundays");
+        const workDaysElement = document.getElementById("workDays");
+        const salaryElement = document.getElementById("salary");
+        const errorElement = document.getElementById("error");
 
-  function setStatus(message) {
-    statusEl.textContent = message;
-  }
+        /* СТВОРЕННЯ СПИСКУ РОКІВ */
 
-  function normalizeAngle(angle) {
-    return ((angle % 360) + 360) % 360;
-  }
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear();
 
-  function angleDifference(a, b) {
-    return Math.abs(((a - b + 540) % 360) - 180);
-  }
+        for (
+            let year = currentYear - 10;
+            year <= currentYear + 10;
+            year++
+        ) {
+            const option = document.createElement("option");
 
-  function distanceMeters(lat1, lon1, lat2, lon2) {
-    const R = 6371000;
-    const rad = Math.PI / 180;
-    const p1 = lat1 * rad;
-    const p2 = lat2 * rad;
-    const dp = (lat2 - lat1) * rad;
-    const dl = (lon2 - lon1) * rad;
-    const a = Math.sin(dp / 2) ** 2 +
-      Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
-    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  }
+            option.value = year;
+            option.textContent = year;
 
-  function bearingDegrees(lat1, lon1, lat2, lon2) {
-    const rad = Math.PI / 180;
-    const p1 = lat1 * rad;
-    const p2 = lat2 * rad;
-    const dl = (lon2 - lon1) * rad;
-    const y = Math.sin(dl) * Math.cos(p2);
-    const x = Math.cos(p1) * Math.sin(p2) -
-      Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
-    return normalizeAngle(Math.atan2(y, x) / rad);
-  }
+            if (year === currentYear) {
+                option.selected = true;
+            }
 
-  function formatDistance(meters) {
-    if (meters < 1000) return Math.round(meters) + " м";
-    return (meters / 1000).toFixed(1).replace(".", ",") + " км";
-  }
-
-  function selectedAngle() {
-    return Number(angleSlider.value);
-  }
-
-  function selectedDistanceMeters() {
-    return Number(distanceSlider.value) * 1000;
-  }
-
-  function updateMapHeading() {
-    if (heading === null) return;
-    if (typeof map.setHeading === "function") {
-      map.setHeading(heading, { ease: 0.25, deadzone: 0 });
-    } else {
-      setStatus("Не завантажився модуль обертання карти. Перевірте інтернет.");
-    }
-    scheduleListRender();
-  }
-
-  function updateGPSPosition(lat, lon, accuracy) {
-    const oldPosition = position;
-    position = { lat, lon };
-
-    if (!myMarker) {
-      myMarker = L.marker([lat, lon], {
-        icon: myIcon,
-        keyboard: false,
-        interactive: false,
-        zIndexOffset: 1000
-      }).addTo(map);
-      map.setView([lat, lon], 11);
-    } else {
-      myMarker.setLatLng([lat, lon]);
-      if (!oldPosition ||
-          distanceMeters(oldPosition.lat, oldPosition.lon, lat, lon) > 15) {
-        map.panTo([lat, lon], { animate: false });
-      }
-    }
-
-    if (heading !== null) updateMapHeading();
-
-    const accuracyText = Number.isFinite(accuracy)
-      ? " Точність GPS ±" + Math.round(accuracy) + " м."
-      : "";
-
-    setStatus(
-      "GPS: " + lat.toFixed(5) + ", " + lon.toFixed(5) +
-      (heading === null ? ". Очікування компаса." :
-        ". Азимут: " + heading.toFixed(1) + "°.") +
-      accuracyText
-    );
-
-    const moved = !lastFetchPosition ||
-      distanceMeters(
-        lastFetchPosition.lat, lastFetchPosition.lon, lat, lon
-      ) >= MIN_MOVE_TO_REFRESH;
-
-    if (!lastFetchTime || moved ||
-        Date.now() - lastFetchTime >= DATA_REFRESH_INTERVAL) {
-      loadSettlements(false);
-    }
-
-    scheduleListRender();
-  }
-
-  function startGPS() {
-    if (!navigator.geolocation) {
-      setStatus("Браузер не підтримує геолокацію.");
-      return;
-    }
-
-    if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
-
-    setStatus("Очікування сигналу GPS…");
-
-    gpsWatchId = navigator.geolocation.watchPosition(
-      p => updateGPSPosition(
-        p.coords.latitude, p.coords.longitude, p.coords.accuracy
-      ),
-      err => setStatus("Помилка GPS: " + err.message +
-        ". Перевірте дозвіл на геолокацію."),
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
-    );
-
-    startBtn.textContent = "GPS увімкнено";
-  }
-
-  function handleOrientation(event) {
-    let newHeading = null;
-
-    if (typeof event.webkitCompassHeading === "number" &&
-        Number.isFinite(event.webkitCompassHeading)) {
-      newHeading = event.webkitCompassHeading;
-    } else if (event.absolute === true &&
-               typeof event.alpha === "number" &&
-               Number.isFinite(event.alpha)) {
-      newHeading = 360 - event.alpha;
-    }
-
-    if (newHeading === null) return;
-    heading = normalizeAngle(newHeading);
-    updateMapHeading();
-  }
-
-  async function startCompass() {
-    if (compassStarted) return;
-
-    try {
-      if (typeof DeviceOrientationEvent !== "undefined" &&
-          typeof DeviceOrientationEvent.requestPermission === "function") {
-        const permission = await DeviceOrientationEvent.requestPermission();
-        if (permission !== "granted") {
-          setStatus("Доступ до компаса не дозволено.");
-          return;
+            yearSelect.appendChild(option);
         }
-      }
 
-      window.addEventListener("deviceorientation", handleOrientation, true);
-      window.addEventListener("deviceorientationabsolute", handleOrientation, true);
-      compassStarted = true;
-      compassBtn.textContent = "Компас увімкнено";
-      setStatus("Компас увімкнено. Тримайте телефон горизонтально.");
-    } catch (e) {
-      setStatus("Не вдалося ввімкнути компас: " + e.message);
-    }
-  }
-function normalizeName(name) {
-    return String(name || "")
-      .normalize("NFKC")
-      .toLocaleLowerCase("uk")
-      .replace(/[’'`]/g, "")
-      .replace(/[^\p{L}\p{N}]+/gu, " ")
-      .trim()
-      .replace(/\s+/g, " ");
-  }
+        /* ПОТОЧНИЙ МІСЯЦЬ */
 
-  function getName(tags) {
-    return tags.name ||
-      tags["name:uk"] ||
-      tags["name:en"] ||
-      tags.official_name ||
-      tags.alt_name ||
-      null;
-  }
+        monthSelect.value = currentDate.getMonth();
 
-  function getCoordinates(element) {
-    if (Number.isFinite(element.lat) && Number.isFinite(element.lon)) {
-      return { lat: element.lat, lon: element.lon };
-    }
+        /* ПЕРЕМИКАННЯ РЕЖИМІВ */
 
-    if (element.center &&
-        Number.isFinite(element.center.lat) &&
-        Number.isFinite(element.center.lon)) {
-      return { lat: element.center.lat, lon: element.center.lon };
-    }
+        monthModeBtn.addEventListener("click", function() {
 
-    return null;
-  }
+            monthModeBtn.classList.add("active");
+            periodModeBtn.classList.remove("active");
 
-  function isSettlement(element) {
-    const place = element.tags && element.tags.place;
-    return ["city", "town", "village", "hamlet", "isolated_dwelling"]
-      .includes(place);
-  }
+            monthMode.classList.add("active");
+            customMode.classList.remove("active");
 
-  async function fetchOverpass(lat, lon) {
-    const query = `
-      [out:json][timeout:45];
-      (
-        node(around:${MAX_RADIUS_METERS},${lat},${lon})["place"~"^(city|town|village|hamlet|isolated_dwelling)$"];
-        way(around:${MAX_RADIUS_METERS},${lat},${lon})["place"~"^(city|town|village|hamlet|isolated_dwelling)$"];
-        relation(around:${MAX_RADIUS_METERS},${lat},${lon})["place"~"^(city|town|village|hamlet|isolated_dwelling)$"];
-      );
-      out center tags;
-    `;
-
-    const endpoints = [
-      "https://overpass-api.de/api/interpreter",
-      "https://overpass.kumi.systems/api/interpreter",
-      "https://overpass.private.coffee/api/interpreter"
-    ];
-
-    let lastError;
-
-    for (const endpoint of endpoints) {
-      const controller = new AbortController();
-      activeController = controller;
-      const timeout = setTimeout(() => controller.abort(), 50000);
-
-      try {
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
-          },
-          body: "data=" + encodeURIComponent(query),
-          signal: controller.signal
+            calculateMonth();
         });
 
-        if (!response.ok) throw new Error("Сервер даних: HTTP " + response.status);
+        periodModeBtn.addEventListener("click", function() {
 
-        const data = await response.json();
-        clearTimeout(timeout);
-        activeController = null;
-        return data.elements || [];
-      } catch (error) {
-        clearTimeout(timeout);
-        activeController = null;
-        lastError = error;
-      }
-    }
+            periodModeBtn.classList.add("active");
+            monthModeBtn.classList.remove("active");
 
-    throw lastError || new Error("Сервери даних недоступні");
-  }
+            customMode.classList.add("active");
+            monthMode.classList.remove("active");
 
-  function removeDuplicates(items) {
-    items.sort((a, b) => a.distance - b.distance);
-
-    const kept = [];
-    const byName = new Map();
-
-    for (const item of items) {
-      const key = normalizeName(item.name);
-      if (!key) continue;
-
-      const candidates = byName.get(key) || [];
-      const duplicate = candidates.some(existing =>
-        distanceMeters(
-          item.lat, item.lon, existing.lat, existing.lon
-        ) < DUPLICATE_DISTANCE_METERS
-      );
-
-      if (duplicate) continue;
-
-      candidates.push(item);
-      byName.set(key, candidates);
-      kept.push(item);
-    }
-
-    return kept;
-  }
-
-  async function loadSettlements(force) {
-    if (!position) {
-      setStatus("Спочатку увімкніть GPS.");
-      return;
-    }
-
-    if (fetchInProgress) {
-      fetchAgain = true;
-      return;
-    }
-
-    const now = Date.now();
-    const moved = !lastFetchPosition ||
-      distanceMeters(
-        lastFetchPosition.lat, lastFetchPosition.lon,
-        position.lat, position.lon
-      ) >= MIN_MOVE_TO_REFRESH;
-
-    if (!force && lastFetchTime && !moved &&
-        now - lastFetchTime < DATA_REFRESH_INTERVAL) {
-      scheduleListRender();
-      return;
-    }
-
-    fetchInProgress = true;
-    fetchAgain = false;
-    lastFetchTime = now;
-    lastFetchPosition = { ...position };
-
-    listEl.innerHTML =
-      '<div id="empty">Завантаження населених пунктів у радіусі 50 км…</div>';
-
-    setStatus("Завантажую дані населених пунктів…");
-
-    try {
-      const elements = await fetchOverpass(
-        lastFetchPosition.lat, lastFetchPosition.lon
-      );
-
-      const raw = [];
-
-      for (const element of elements) {
-        if (!isSettlement(element)) continue;
-
-        const name = getName(element.tags || {});
-        const coords = getCoordinates(element);
-        if (!name || !coords) continue;
-
-        const distance = distanceMeters(
-          lastFetchPosition.lat, lastFetchPosition.lon,
-          coords.lat, coords.lon
-        );
-
-        if (distance > MAX_RADIUS_METERS) continue;
-
-        raw.push({
-          id: element.type + "/" + element.id,
-          name,
-          lat: coords.lat,
-          lon: coords.lon,
-          distance,
-          bearing: bearingDegrees(
-            lastFetchPosition.lat, lastFetchPosition.lon,
-            coords.lat, coords.lon
-          ),
-          place: element.tags.place || ""
+            calculatePeriod();
         });
-      }
 
-      settlements = removeDuplicates(raw);
-      scheduleListRender();
+        /* НАЛАШТУВАННЯ АВАНСУ */
 
-      setStatus(
-        "Завантажено " + settlements.length +
-        " унікальних населених пунктів. Оновлення приблизно раз на 3 хвилини."
-      );
-    } catch (error) {
-      listEl.innerHTML =
-        '<div id="empty">Не вдалося отримати дані. Перевірте інтернет і натисніть «Оновити дані». Причина: ' +
-        escapeHTML(error.message || "невідома помилка") + '</div>';
+        advanceEnabled.addEventListener("change", function() {
 
-      setStatus("Помилка завантаження: " +
-        (error.message || "невідома помилка"));
-    } finally {
-      fetchInProgress = false;
+            advanceSettings.style.display =
+                advanceEnabled.checked ? "block" : "none";
 
-      if (fetchAgain) {
-        fetchAgain = false;
-        loadSettlements(true);
-      }
-    }
-  }
+            recalculate();
+        });
 
-  function escapeHTML(value) {
-    return String(value).replace(/[&<>"']/g, ch => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    })[ch]);
-  }
+        /* ОТРИМАННЯ ЗАРПЛАТИ ЗА ДЕНЬ */
 
-  function scheduleListRender() {
-    if (renderTimer !== null) return;
+        function getSalaryPerDay() {
 
-    const elapsed = Date.now() - lastListRender;
-    const wait = Math.max(0, LIST_UPDATE_INTERVAL - elapsed);
+            const value = Number(salaryPerDayInput.value);
 
-    renderTimer = setTimeout(() => {
-      renderTimer = null;
-      lastListRender = Date.now();
-      renderSettlementList();
-    }, wait);
-  }
+            if (salaryPerDayInput.value.trim() === "" || !Number.isFinite(value)) {
+                return defaultSalaryPerDay;
+            }
 
-  function renderSettlementList() {
-    const tolerance = Number(angleSlider.value);
-    const maxDistance = Number(distanceSlider.value) * 1000;
+            return Math.max(0, value);
+        }
 
-    listHeader.textContent =
-      "Попереду: ±" + tolerance + "°, до " +
-      (maxDistance / 1000) + " км";
+        /* ОТРИМАННЯ СУМИ АВАНСУ */
 
-    angleValue.textContent = "±" + tolerance + "°";
-    distanceValue.textContent = (maxDistance / 1000) + " км";
+        function getAdvanceAmount() {
 
-    if (!position) {
-      listEl.innerHTML = '<div id="empty">Очікування GPS…</div>';
-      return;
-    }
+            const value = Number(advanceAmountInput.value);
 
-    if (heading === null) {
-      listEl.innerHTML =
-        '<div id="empty">Увімкніть компас. Коли він запрацює, тут з’являться населені пункти за напрямком стрілки.</div>';
-      return;
-    }
+            if (advanceAmountInput.value.trim() === "" || !Number.isFinite(value)) {
+                return defaultAdvance;
+            }
 
-    const matches = settlements
-      .map(s => ({
-        ...s,
-        angleDiff: angleDifference(s.bearing, heading)
-      }))
-      .filter(s =>
-        s.distance <= maxDistance &&
-        s.angleDiff <= tolerance
-      )
-      .sort((a, b) => a.distance - b.distance);
+            return Math.max(0, value);
+        }
 
-    if (!matches.length) {
-      listEl.innerHTML =
-        '<div id="empty">У секторі ±' + tolerance +
-        '° немає населених пунктів у межах ' +
-        (maxDistance / 1000) +
-        ' км. Збільште кут або відстань. Завантажено населених пунктів: ' +
-        settlements.length + '.</div>';
-      return;
-    }
+        /* РОЗРАХУНОК ОДНОГО МІСЯЦЯ */
 
-    const fragment = document.createDocumentFragment();
+        function calculateMonth() {
 
-    for (const s of matches) {
-      const item = document.createElement("div");
-      item.className = "item";
+            errorElement.textContent = "";
 
-      const name = document.createElement("div");
-      name.className = "itemName";
-      name.textContent = s.name;
+            const month = Number(monthSelect.value);
+            const year = Number(yearSelect.value);
 
-      const distance = document.createElement("div");
-      distance.className = "distance";
-      distance.textContent = formatDistance(s.distance);
+            const totalDays = new Date(year, month + 1, 0).getDate();
 
-      item.appendChild(name);
-      item.appendChild(distance);
+            let sundays = 0;
 
-      item.addEventListener("click", () => {
-        map.setView([s.lat, s.lon], 14);
-      });
+            for (let day = 1; day <= totalDays; day++) {
 
-      fragment.appendChild(item);
-    }
+                const date = new Date(year, month, day);
 
-    listEl.replaceChildren(fragment);
-  }
+                if (date.getDay() === 0) {
+                    sundays++;
+                }
+            }
 
-  angleSlider.addEventListener("input", () => {
-    angleValue.textContent = "±" + angleSlider.value + "°";
-    scheduleListRender();
-  });
+            const missedDays = Number(missedDaysSelect.value);
 
-  distanceSlider.addEventListener("input", () => {
-    distanceValue.textContent = distanceSlider.value + " км";
-    scheduleListRender();
-  });
+            const workDays = Math.max(
+                0,
+                totalDays - sundays - missedDays
+            );
 
-  startBtn.addEventListener("click", startGPS);
-  compassBtn.addEventListener("click", startCompass);
-  refreshBtn.addEventListener("click", () => loadSettlements(true));
+            showResult(totalDays, sundays, workDays);
+        }
 
-  map.whenReady(() => {
-    if (typeof map.setHeading !== "function") {
-      setStatus("Не завантажився модуль обертання карти. Перевірте інтернет.");
-    }
-  });
+        /* РОЗРАХУНОК ВЛАСНОГО ПЕРІОДУ */
 
-  window.addEventListener("resize", () => {
-    setTimeout(() => map.invalidateSize(), 100);
-  });
-})();
-</script>
+        function calculatePeriod() {
+
+            errorElement.textContent = "";
+
+            if (!startDateInput.value || !endDateInput.value) {
+                clearResult();
+                return;
+            }
+
+            const startDate = new Date(startDateInput.value);
+            const endDate = new Date(endDateInput.value);
+
+            if (startDate > endDate) {
+
+                clearResult();
+
+                errorElement.textContent =
+                    "Дата початку не може бути пізніше дати завершення.";
+
+                return;
+            }
+
+            let totalDays = 0;
+            let sundays = 0;
+
+            const currentDate = new Date(startDate);
+
+            while (currentDate <= endDate) {
+
+                totalDays++;
+
+                if (currentDate.getDay() === 0) {
+                    sundays++;
+                }
+
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            const missedDays = Number(missedDaysSelect.value);
+
+            const workDays = Math.max(
+                0,
+                totalDays - sundays - missedDays
+            );
+
+            showResult(totalDays, sundays, workDays);
+        }
+
+        /* ПОКАЗ РЕЗУЛЬТАТУ */
+
+        function showResult(totalDays, sundays, workDays) {
+
+            const salaryPerDay = getSalaryPerDay();
+
+            let salary = workDays * salaryPerDay;
+
+            if (advanceEnabled.checked) {
+                salary -= getAdvanceAmount();
+            }
+
+            salary = Math.max(0, salary);
+
+            totalDaysElement.textContent = totalDays;
+            sundaysElement.textContent = sundays;
+            workDaysElement.textContent = workDays;
+
+            salaryElement.textContent = salary.toLocaleString("uk-UA", {
+                maximumFractionDigits: 2
+            });
+        }
+
+        /* ОЧИЩЕННЯ РЕЗУЛЬТАТУ */
+
+        function clearResult() {
+
+            totalDaysElement.textContent = 0;
+            sundaysElement.textContent = 0;
+            workDaysElement.textContent = 0;
+            salaryElement.textContent = "0";
+        }
+
+        /* ПОВТОРНИЙ РОЗРАХУНОК АКТИВНОГО РЕЖИМУ */
+
+        function recalculate() {
+
+            if (monthMode.classList.contains("active")) {
+                calculateMonth();
+            } else {
+                calculatePeriod();
+            }
+        }
+
+        /* ПОДІЇ */
+
+        monthSelect.addEventListener("change", calculateMonth);
+        yearSelect.addEventListener("change", calculateMonth);
+
+        startDateInput.addEventListener("change", calculatePeriod);
+        endDateInput.addEventListener("change", calculatePeriod);
+
+        salaryPerDayInput.addEventListener("input", recalculate);
+        advanceAmountInput.addEventListener("input", recalculate);
+        missedDaysSelect.addEventListener("change", recalculate);
+
+        /* ПОЧАТКОВИЙ РОЗРАХУНОК */
+
+        salaryPerDayInput.value = defaultSalaryPerDay;
+        advanceAmountInput.value = defaultAdvance;
+
+        calculateMonth();
+
+    </script>
+
 </body>
 </html>
